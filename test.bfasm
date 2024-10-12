@@ -1,0 +1,35 @@
+MACRO div (x y -> x):                     
+    temp0[-]
+    temp1[-]
+    temp2[-]
+    temp3[-]
+    x[temp0+x-]
+    temp0[
+     y[temp1+temp2+y-]
+     temp2[y+temp2-]
+     temp1[
+      temp2+
+      temp0-[temp2[-]temp3+temp0-]
+      temp3[temp0+temp3-]
+      temp2[
+       temp1-
+       [x-temp1[-]]+
+      temp2-]
+     temp1-]
+     x+
+    temp0]
+
+MACRO newline ():                           
+    temp0+++++++++++++.[-]                  
+
+MACRO copy (y -> x):  
+    temp0[-]       
+    x[-]           
+    y[x+temp0+y-]  
+    temp0[y+temp0-]
+
+MACRO main ():                              
+    x,                                      
+    y,
+    USE copy (x -> q)
+    USE div (q y -> q)
