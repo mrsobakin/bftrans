@@ -14,3 +14,6 @@ add_subdirectory(lib/labels)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE asm labels)
 target_include_directories(${PROJECT_NAME} PRIVATE .)
+
+enable_testing()
+add_subdirectory(tests)
