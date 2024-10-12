@@ -2,11 +2,11 @@
 
 #include <cstdint>
 #include <string>
-#include <unordered_set>
+#include <charconv>
 #include <set>
-#include <unordered_map>
 #include <map>
 #include <variant>
+#include <iostream>
 #include <vector>
 
 
@@ -15,7 +15,12 @@ std::ostream& operator<<(std::ostream& os, bflabels::Token token) {
         if constexpr (std::is_same_v<decltype(token), char>) {
             os << token;
         } else if constexpr (std::is_same_v<decltype(token), bflabels::Label>) {
-            os << "var" << token.idx;
+            os << "var" << token.label_idx;
+            if (token.element_idx) {
+                os << '(' << token.element_idx << ')';
+            }
+        } else if constexpr (std::is_same_v<decltype(token), bflabels::Scope>) {
+            os << (token == bflabels::Scope::Enter ? '{' : '}');
         }
     }, token);
     return os;
@@ -24,14 +29,12 @@ std::ostream& operator<<(std::ostream& os, bflabels::Token token) {
 
 namespace bflabels {
 
+ParseResult<std::optional<Token>> Parser::parse_next() {
+    if (ch == end) {
+        return std::nullopt;
+    }
 
-bool Range::contains(int64_t idx) {
-    return idx >= start && idx <= end;
-}
-
-
-void BFLParser::parse_char(char c) {
-    switch (c) {
+    switch (*ch) {
         case '+':
         case ',':
         case '-':
@@ -40,49 +43,126 @@ void BFLParser::parse_char(char c) {
         case '>':
         case '[':
         case ']':
-            if (!ident.empty()) {
-                push_ident();
+            return *ch++;
+
+        case '(':
+        case ')':
+            return std::unexpected(ParseError::UnexpectedParens);
+
+        case '{':
+            ++ch;
+            return Scope::Enter;
+
+        case '}':
+            ++ch;
+            return Scope::Exit;
+
+        default: {
+            if (isspace(*ch)) {
+                ++ch;
+                return parse_next();
             }
-            tokens.push_back(c);
-            break;
 
-        case ' ':
-        case '\n':
-            break;
+            if (!isalnum((*ch))) {
+                return std::unexpected(ParseError::BadCharacter);
+            }
 
-        default:
-            ident.push_back(c);
-            break;
+            return parse_label();
+        }
     }
 }
 
-void BFLParser::finish() {
-    if (!ident.empty()) {
-        push_ident();
+ParseResult<Label> Parser::parse_label() {
+    std::string_view::iterator label_start = ch;
+
+    while (ch != end && isalnum(*ch)) {
+        ++ch;
+    }
+
+    std::string_view::iterator label_end = ch;
+
+    if (label_start == label_end) {
+        return std::unexpected(ParseError::InvalidLabel);
+    }
+
+    size_t label_idx = get_label({label_start, label_end});
+
+    skip_whitespaces();
+
+    if (ch == end || *ch != '(') {
+        return Label {
+            .label_idx = label_idx,
+            .element_idx = 0,
+        };
+    }
+    ++ch;
+
+    skip_whitespaces();
+
+    std::string_view::iterator index_start = ch;
+
+    while (ch != end && isdigit(*ch)) {
+        ++ch;
+    }
+
+    std::string_view::iterator index_end = ch;
+
+    skip_whitespaces();
+
+    if (ch == end || *ch != ')') {
+        return std::unexpected(ParseError::ParensUnclosed);
+    }
+    ++ch;
+
+    size_t element_idx = 0;
+
+    if (index_start != index_end) {
+        if (std::from_chars(index_start, index_end, element_idx).ec != std::errc{}) {
+            return std::unexpected(ParseError::InvalidIndex);
+        }
+    }
+
+    return Label {
+        .label_idx = label_idx,
+        .element_idx = element_idx,
+    };
+}
+
+void Parser::skip_whitespaces() {
+    while (ch != end && isspace(*ch)) {
+        ++ch;
     }
 }
 
-void BFLParser::push_ident() {
+size_t Parser::get_label(std::string_view ident) {
     if (ident_labels.contains(ident)) {
-        tokens.push_back(ident_labels[ident]);
+        return ident_labels.at(ident);
     } else {
-        ident_labels[ident] = Label { next_idx };
-        tokens.push_back(Label { next_idx });
         ++next_idx;
+        ident_labels[ident] = next_idx;
+        return next_idx;
     }
-
-    ident.clear();
 }
 
-std::vector<Token> BFLParser::parse(std::string_view code) {
-    BFLParser p;
+ParseResult<std::vector<Token>> Parser::parse() {
+    std::vector<Token> tokens;
 
-    for (char c : code) {
-        p.parse_char(c);
+    while (ch < end) {
+        auto token = parse_next();
+
+        if (!token.has_value()) {
+            std::cout << (int)(token.error()) << std::endl;
+            return std::unexpected(token.error());
+        }
+
+        if (!*token) {
+            break;
+        }
+
+        tokens.push_back(**token);
     }
-    p.finish();
 
-    return p.tokens;
+    return tokens;
 }
 
 
@@ -100,14 +180,14 @@ std::map<Label, int64_t> BFLCode::find_offsets() {
     std::set<Label> placed_labels;
     std::set<Label> unplaced_labels;
 
-    for (auto label : unique_labels) {
-        if (!layout.label_offsets.contains(label)) {
-            std::cout << "Label " << label << '\n';
-            unplaced_labels.insert(label);
-        } else {
-            placed_labels.insert(label);
-        }
-    }
+    // for (auto label : unique_labels) {
+    //     if (!layout.label_offsets.contains(label)) {
+    //         std::cout << "Label " << label << '\n';
+    //         unplaced_labels.insert(label);
+    //     } else {
+    //         placed_labels.insert(label);
+    //     }
+    // }
 
     // TODO TODO TODO TODO
 
