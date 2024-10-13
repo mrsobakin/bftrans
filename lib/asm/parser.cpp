@@ -5,7 +5,7 @@
 #include <tuple>
 #include "ast.h"
 #include "utils.h"
-
+#include "../utils.h"
 
 namespace bfasm::parse {
     void LabelDispatcher::clear_locals() {

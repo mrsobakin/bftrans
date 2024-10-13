@@ -43,7 +43,7 @@ int main() {
     std::cout << std::endl;
 
     std::cout << "Brainfuck: " << std::endl;
-    auto bfl = bflabels::BFLCode(compiled.result, bflabels::MemoryLayout{});
+    auto bfl = bflabels::BFLCode(compiled.result);
     std::cout << bfl.compile();
     std::cout << std::endl;
 }

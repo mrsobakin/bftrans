@@ -4,7 +4,7 @@
 #include <expected>
 #include <iostream>
 #include <string>
-#include <unordered_map>
+//#include <unordered_map>
 #include <map>
 #include <variant>
 #include <vector>
@@ -17,6 +17,7 @@ using Operation = char;
 struct Label {
     size_t label_idx;
     size_t element_idx;
+    size_t scope_idx;
 
     bool operator==(const Label& other) const = default;
     bool operator<(const Label& other) const {
@@ -45,6 +46,41 @@ std::ostream& operator<<(std::ostream& os, bflabels::Token token);
 
 namespace bflabels {
 
+class Context {
+private:
+    size_t scope_cur;
+    std::vector<size_t> scope_stack;
+    std::vector<size_t> scope_parents;
+
+public:
+    Context()
+        : scope_cur(0)
+        , scope_stack({0})
+        , scope_parents({0})
+    {}
+
+    Context(Context& other) = default;
+    Context& operator=(Context &other) = default;
+    Context(Context&& other) = default;
+    Context& operator=(Context&& other) = default;
+    
+    size_t get_scope() const;
+    bool adjacent(size_t f, size_t s) const;
+    void add_scope();
+    void pop_scope();
+};
+
+class Unit {
+public:
+    std::vector<Token> tokens;
+    Context context;
+
+    Unit(std::vector<Token> tokens, Context context)
+        : tokens(tokens)
+        , context(context)
+    {}
+};
+
 enum class ParseError {
     InvalidLabel,
     BadCharacter,
@@ -61,7 +97,9 @@ private:
     std::string_view::iterator ch;
     const std::string_view::iterator end;
 
-    std::unordered_map<std::string_view, size_t> ident_labels;
+    Context context;
+
+    std::map<std::tuple<std::string_view, size_t>, size_t> ident_labels;
     size_t next_idx = 0;
 
     ParseResult<std::optional<Token>> parse_next();
@@ -71,23 +109,24 @@ private:
     size_t get_label(std::string_view ident);
 
 public:
-    Parser(std::string_view code) :
-        ch(code.begin()),
-        end(code.end()) {}
+    Parser(std::string_view code)
+        : ch(code.begin())
+        , end(code.end())
+    {}
 
-    ParseResult<std::vector<Token>> parse();
+    ParseResult<Unit> parse();
 };
 
 
 class BFLCode {
 private:
-    const std::vector<Token>& tokens;
+    Unit unit;
 
+    void import_tokens(std::vector<Token> tokens);
     std::map<Label, int64_t> find_offsets();
 
 public:
-    BFLCode(const std::vector<Token>& tokens) :
-          tokens(tokens) {};
+    BFLCode(const std::vector<Token>& tokens);
 
     std::string compile();
 };

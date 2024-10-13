@@ -4,17 +4,12 @@
 #include <tuple>
 #include <variant>
 
-
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
 template <typename V, typename T>
 bool variant_is(const V& variant, const T& value) {
     const T* control = std::get_if<T>(&variant);
     if (!control) return false;
     return *control == value;
 }
-
 
 template <typename T1, typename T2>
 using tuple_types_cat_t = decltype(std::tuple_cat(std::declval<T1>(), std::declval<T2>()));
