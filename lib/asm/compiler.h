@@ -4,8 +4,7 @@
 #include <unordered_map>
 #include "../labels/bflabels.h"
 #include "ast.h"
-#include "utils.h"
-
+#include "../utils.h"
 
 namespace bfasm::compiler {
     struct CompileError {

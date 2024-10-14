@@ -65,7 +65,7 @@ public:
     Context& operator=(Context&& other) = default;
     
     size_t get_scope() const;
-    bool adjacent(size_t f, size_t s) const;
+    bool lifetimes_intersect(size_t f, size_t s) const;
     void add_scope();
     void pop_scope();
 };
@@ -122,13 +122,13 @@ class BFLCode {
 private:
     Unit unit;
 
-    void import_tokens(std::vector<Token> tokens);
-    std::map<Label, int64_t> find_offsets();
+    void relabel(std::vector<Token> tokens);
+    std::map<Label, int64_t> find_offsets() const;
 
 public:
     BFLCode(const std::vector<Token>& tokens);
 
-    std::string compile();
+    std::string compile() const;
 };
 
 } // namespace bflabels

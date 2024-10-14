@@ -5,6 +5,7 @@
 #include <string>
 #include <charconv>
 #include <set>
+#include <climits>
 #include <list>
 #include <map>
 #include <variant>
@@ -35,7 +36,7 @@ size_t Context::get_scope() const {
     return scope_cur;
 }
 
-bool Context::adjacent(size_t f, size_t s) const {
+bool Context::lifetimes_intersect(size_t f, size_t s) const {
     return f == s || scope_parents[f] == s || scope_parents[s] == f;
 }
 
@@ -187,7 +188,7 @@ ParseResult<Unit> Parser::parse() {
     return Unit{tokens, context};
 }
 
-void BFLCode::import_tokens(std::vector<Token> tokens) {
+void BFLCode::relabel(std::vector<Token> tokens) {
     unit.tokens = tokens;
     for (auto& i : unit.tokens) {
         std::visit(overloaded {
@@ -206,7 +207,7 @@ void BFLCode::import_tokens(std::vector<Token> tokens) {
     }
 }
 
-std::map<Label, int64_t> BFLCode::find_offsets() {
+std::map<Label, int64_t> BFLCode::find_offsets() const {
     std::vector<Label> labels;
 
     for (auto token : unit.tokens) {
@@ -219,7 +220,7 @@ std::map<Label, int64_t> BFLCode::find_offsets() {
     std::vector<std::vector<int64_t>> weight(labels.size(), std::vector<int64_t> (labels.size()));
 
     for (size_t i = 1; i < labels.size(); ++i) {
-        if (unit.context.adjacent(labels[i - 1].scope_idx, labels[i].scope_idx)) {
+        if (unit.context.lifetimes_intersect(labels[i - 1].scope_idx, labels[i].scope_idx)) {
             weight[labels[i].label_idx][labels[i - 1].label_idx]++;
             weight[labels[i - 1].label_idx][labels[i].label_idx]++;
         }
@@ -229,8 +230,40 @@ std::map<Label, int64_t> BFLCode::find_offsets() {
     std::set<Label> unique_labels(labels.begin(), labels.end());
     std::list<Label> ordered;
 
-    for (auto& i : unique_labels) {
-        
+    size_t len = 0;
+
+    for (auto& to_add : unique_labels) {
+        uint64_t left_w = 0, right_w = 0;
+        for (auto& i : ordered) {
+            left_w += weight[to_add.label_idx][i.label_idx];
+        }
+
+        uint64_t left_loss = 0, right_loss = 0;
+        uint64_t argegate = 0;
+        for (auto& i : ordered) {
+            argegate += weight[to_add.label_idx][i.label_idx];
+            left_loss += argegate;
+        }
+
+        size_t pos = 0, min_pos = 0;
+        uint64_t min_loss = std::numeric_limits<uint64_t>::max();
+        for (auto& i : reverse(ordered)) {
+            if (min_loss > left_loss + right_loss) {
+                min_loss = left_loss + right_loss;
+                min_pos = pos;
+            }
+            ++pos;
+            left_w -= weight[to_add.label_idx][i.label_idx];
+            left_loss -= left_w;
+            right_loss += right_w;
+            right_w += weight[to_add.label_idx][i.label_idx];
+        }
+        if (min_loss > left_loss + right_loss) {
+            min_loss = left_loss + right_loss;
+            min_pos = pos;
+        }
+
+        ordered.insert(std::prev(ordered.end(), min_pos), to_add);
     }
 
     std::map<Label, int64_t> offsets;
@@ -242,7 +275,11 @@ std::map<Label, int64_t> BFLCode::find_offsets() {
     return offsets;
 }
 
-std::string BFLCode::compile() {
+BFLCode::BFLCode(const std::vector<Token>& tokens) {
+    relabel(tokens);
+}
+
+std::string BFLCode::compile() const {
     std::string code;
     int64_t last_pos = 0;
 
