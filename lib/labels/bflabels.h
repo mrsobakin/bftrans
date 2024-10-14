@@ -4,7 +4,6 @@
 #include <expected>
 #include <iostream>
 #include <string>
-//#include <unordered_map>
 #include <map>
 #include <variant>
 #include <vector>
@@ -19,7 +18,10 @@ struct Label {
     size_t element_idx;
     size_t scope_idx;
 
-    bool operator==(const Label& other) const = default;
+    bool operator==(const Label& other) const {
+        return label_idx == other.label_idx;
+    };
+
     bool operator<(const Label& other) const {
         return label_idx < other.label_idx;
     };
@@ -46,40 +48,19 @@ std::ostream& operator<<(std::ostream& os, bflabels::Token token);
 
 namespace bflabels {
 
-class Context {
+class Scopes {
 private:
-    size_t scope_cur;
-    std::vector<size_t> scope_stack;
-    std::vector<size_t> scope_parents;
+    size_t scope_curr = 0;
+    std::vector<size_t> stack = {0};
+    std::vector<size_t> parents = {0};
 
 public:
-    Context()
-        : scope_cur(0)
-        , scope_stack({0})
-        , scope_parents({0})
-    {}
-
-    Context(Context& other) = default;
-    Context& operator=(Context &other) = default;
-    Context(Context&& other) = default;
-    Context& operator=(Context&& other) = default;
-    
-    size_t get_scope() const;
     bool lifetimes_intersect(size_t f, size_t s) const;
+    size_t get_scope() const { return scope_curr; };
     void add_scope();
     void pop_scope();
 };
 
-class Unit {
-public:
-    std::vector<Token> tokens;
-    Context context;
-
-    Unit(std::vector<Token> tokens, Context context)
-        : tokens(tokens)
-        , context(context)
-    {}
-};
 
 enum class ParseError {
     InvalidLabel,
@@ -97,9 +78,7 @@ private:
     std::string_view::iterator ch;
     const std::string_view::iterator end;
 
-    Context context;
-
-    std::map<std::tuple<std::string_view, size_t>, size_t> ident_labels;
+    std::map<std::string_view, size_t> ident_labels;
     size_t next_idx = 0;
 
     ParseResult<std::optional<Token>> parse_next();
@@ -109,26 +88,26 @@ private:
     size_t get_label(std::string_view ident);
 
 public:
-    Parser(std::string_view code)
-        : ch(code.begin())
-        , end(code.end())
-    {}
+    Parser(std::string_view code):
+        ch(code.begin()),
+        end(code.end()) {}
 
-    ParseResult<Unit> parse();
+    ParseResult<std::vector<Token>> parse();
 };
 
 
 class BFLCode {
 private:
-    Unit unit;
+    Scopes scopes;
+    std::vector<Token> tokens;
 
-    void relabel(std::vector<Token> tokens);
+    void relabel_tokens();
     std::map<Label, int64_t> find_offsets() const;
 
 public:
     BFLCode(const std::vector<Token>& tokens);
 
-    std::string compile() const;
+    std::string compile();
 };
 
 } // namespace bflabels
