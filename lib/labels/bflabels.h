@@ -19,12 +19,36 @@ struct Label {
     size_t scope_idx;
 
     bool operator==(const Label& other) const {
-        return label_idx == other.label_idx;
+        return label_idx == other.label_idx && scope_idx == other.scope_idx;
     };
 
     bool operator<(const Label& other) const {
+        if (label_idx == other.label_idx) {
+            return scope_idx < other.scope_idx;
+        }
         return label_idx < other.label_idx;
     };
+};
+
+struct LabelUnique {
+    size_t label_idx;
+    size_t scope_idx;
+
+    bool operator==(const LabelUnique& other) const {
+        return label_idx == other.label_idx && scope_idx == other.label_idx;
+    }
+
+    bool operator<(const LabelUnique& other) const {
+        if (label_idx == other.label_idx) {
+            return scope_idx < other.scope_idx; 
+        }
+        return label_idx < other.label_idx;
+    }
+
+    LabelUnique(Label label)
+        : label_idx(label.label_idx)
+        , scope_idx(label.scope_idx)
+    {}
 };
 
 enum class Scope {
@@ -55,7 +79,7 @@ private:
     std::vector<size_t> parents = {0};
 
 public:
-    bool lifetimes_intersect(size_t f, size_t s) const;
+    bool do_coexist(LabelUnique f, LabelUnique s) const;
     size_t get_scope() const { return scope_curr; };
     void add_scope();
     void pop_scope();
@@ -95,14 +119,14 @@ public:
     ParseResult<std::vector<Token>> parse();
 };
 
-
 class BFLCode {
 private:
     Scopes scopes;
     std::vector<Token> tokens;
 
     void relabel_tokens();
-    std::map<Label, int64_t> find_offsets() const;
+    std::map<LabelUnique, size_t> find_lengths() const;
+    std::map<LabelUnique, int64_t> find_offsets() const;
 
 public:
     BFLCode(const std::vector<Token>& tokens);
