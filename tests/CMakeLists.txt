@@ -15,6 +15,7 @@ enable_testing()
 add_executable(
     ${PROJECT_NAME}_tests
     bflabels_parser.cpp
+    bflabels_compiler.cpp
 )
 
 target_link_libraries(
