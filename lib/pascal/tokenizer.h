@@ -1,5 +1,7 @@
 #pragma once
 
+#include <__expected/expected.h>
+#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string_view>
@@ -81,13 +83,37 @@ namespace pascal {
         Minus,
     };
 
-    std::optional<Keyword> string_to_keyword(std::string_view str); 
 
-    using TokenData = std::variant<Identifier, Keyword, Keysymbol>;
+    enum NumberType {
+        SignedInteger,
+        SignedReal,
+        UnsignedInteger,
+        UnsignedReal,
+    };
+
+    struct Number {
+        NumberType type;
+        std::variant<int64_t, uint64_t> integer_part;
+        uint64_t float_part;
+        std::variant<int64_t, uint64_t> fractional_part;
+    };
+
+    std::optional<Keyword> string_to_keyword(std::string_view str); 
+    
+    std::optional<NumberType> string_to_number_type(std::string_view str); 
+    
+    std::optional<Keysymbol> string_to_keysymbol(std::string_view str); 
+
+    using TokenData = std::variant<Identifier, Keyword, Keysymbol, Number>;
 
     struct Token {
         Position pos;
         TokenData data;
+    };
+
+    enum ErrorType {
+        UnexpectedToken,
+        IncorrectNumber,
     };
 
 
@@ -106,19 +132,22 @@ namespace pascal {
         
             bool is_special_character();
 
-            Token read_token();
+            std::expected<Token, ErrorType> read_token();
         
-            std::string_view read_number();
+            std::expected<Number, ErrorType> read_number();
             
             std::string_view read_word();
 
             std::string_view read_spec_symbol();
         
-            void try_move_caret();
+            void next();
+
+            bool is_number();
         public:
             Tokenizer(std::string_view code) : current_character(code.begin()), end(code.end()) {}
             ~Tokenizer();
         
             void tokenize();
+            void print();
     };
 }
