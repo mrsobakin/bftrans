@@ -273,6 +273,7 @@ namespace pascal {
         if (special_symbol == ">=") return Keysymbol::GreaterOrEqual;
         if (special_symbol == ":=") return Keysymbol::Assign;
         if (special_symbol == "..") return Keysymbol::Range;
+        return std::nullopt;
     }
 
     bool Tokenizer::is_number() {

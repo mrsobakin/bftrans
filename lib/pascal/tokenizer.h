@@ -128,8 +128,6 @@ namespace pascal {
 
             void skip_whitespace();
 
-            bool is_EOF();
-        
             bool is_special_character();
 
             std::expected<Token, ErrorType> read_token();
